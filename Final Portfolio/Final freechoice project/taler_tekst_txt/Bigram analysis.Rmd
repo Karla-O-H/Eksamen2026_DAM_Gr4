@@ -1,0 +1,161 @@
+---
+title: "Bigram analysis"
+output: html_document
+date: "2026-05-13"
+author: "Jonathan Krüger-Iversen"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(tibble)
+library(readtext)
+library(tidytext)
+library(stopwords)
+
+```
+
+```{r}
+#We access our self made datasets 'kriser' and 'ikke_kriser' in the desktop folder 'taler_text_txt' by using the function 'readtext' and accessing all files ending with '.txt' which is all files in both folders - five speeches in each. 
+
+kriser <- tibble(readtext("kriser/*.txt",
+                          docvarsfrom = "filenames",
+                          docvarnames = c("navn","årstal","parti","kontekst"),
+                          dvsep = "_"))
+
+
+ikke_kriser <- tibble(readtext("ikke_kriser//*.txt",
+                          docvarsfrom = "filenames",
+                          docvarnames = c("navn","årstal","parti","kontekst"),
+                          dvsep = "_"))
+```
+
+```{r}
+#We define our values as 'pairs of words' so all causal and chronological combinations of two words are accesible as values. The unnest_tokens function also makes all letters lowercase and removes punctuation from the texts.
+
+kriser %>% 
+  unnest_tokens(bigram, text, token = "ngrams", n = 2) -> kriser_bigrams
+
+ikke_kriser %>% 
+  unnest_tokens(bigram, text, token = "ngrams", n = 2) -> ikke_kriser_bigrams
+```
+
+```{r}
+#We check to see if the values have been registered by using the count function on all bigrams.
+kriser_bigrams %>% 
+  count(bigram, sort = TRUE)
+```
+
+```{r}
+#We use the stopwordpackage 'da' and call it 'stopord' and make a context specific stopwordlist and add the words, that aren't included in the 'da' package.
+
+stopord <- tibble(word = stopwords("da"))
+
+stopord_nytaarstaler <- tibble(word = c("kan", "år", "så", "ved", "må", "nye", "mere", "godt", "andre", "gøre", "kommer", "får", "store", "vort", "hele", "uden", "andet", "fordi", "går", "ingen", "derfor", "endnu", "enkelte", "hver", "lad", "kan"))
+```
+
+```{r}
+#We seperate the words in the bigrams, so instead of one value, we now have a pair of two values as our bigrams. 
+
+kriser_bigrams %>% 
+  separate(bigram, c("word1", "word2"), sep = " ") ->kriser_bigrams_separated
+```
+
+```{r}
+#We apply both stopword packages on both words in each bigram.
+
+kriser_bigrams_separated %>% 
+  filter(!word1 %in% stopord$word) %>%
+  filter(!word2 %in% stopord$word) %>%
+  filter(!word1 %in% stopord_nytaarstaler$word) %>%
+  filter(!word2 %in% stopord_nytaarstaler$word)-> kriser_bigrams_filtered
+```
+
+```{r}
+#We now count the new filtered bigrams.
+
+kriser_bigrams_filtered %>% 
+  count(word1, word2, sort = TRUE)
+```
+
+```{r}
+#We define the counted and filtered crisies-bigrams as 'kriser_bigrams_counts'
+kriser_bigrams_filtered %>% 
+  count(word1, word2, sort = TRUE) -> kriser_bigrams_counts
+```
+
+```{r, message=FALSE}
+#To make the graph/ visualization we install the package called 'igraph' and apply it
+#Thereafter we filter the the complete counts so only bigrams apparent at least thrice and call this 'bigram_graph_kriser'.
+
+#install.packages("igraph")
+library(igraph)
+
+bigram_graph_kriser <- kriser_bigrams_counts %>%
+  filter(n > 2) %>%
+  graph_from_data_frame()
+
+```
+
+```{r}
+#We install and apply the specific graph for visualizing the bigrams. We also define the size and scale of both the graph amd its content.
+
+#install.packages("ggraph")
+library(ggraph)
+a <- grid::arrow(type = "closed", length = unit(.15, "inches"))
+
+ggraph(bigram_graph_kriser, layout = "fr") +
+  geom_edge_link(aes(edge_alpha = n), show.legend = FALSE,
+                 arrow = a, end_cap = circle(.05, 'inches')) +
+  geom_node_point(color = "darkgreen", size = 4) +
+  geom_node_text(aes(label = name), vjust = 1, hjust = 1) +
+  theme_void()
+```
+
+```{r}
+#We now follow the exact same route to produce a similar graph from our not-crisies speeches 'ikke_kriser_bigrams'
+
+ikke_kriser_bigrams %>% 
+  separate(bigram, c("word1", "word2"), sep = " ") ->ikke_kriser_bigrams_separated
+```
+
+```{r}
+ikke_kriser_bigrams_separated %>% 
+  filter(!word1 %in% stopord$word) %>%
+  filter(!word2 %in% stopord$word) %>%
+  filter(!word1 %in% stopord_nytaarstaler$word) %>%
+  filter(!word2 %in% stopord_nytaarstaler$word)-> ikke_kriser_bigrams_filtered
+```
+
+```{r}
+ikke_kriser_bigrams_filtered %>% 
+  count(word1, word2, sort = TRUE)
+```
+
+```{r}
+ikke_kriser_bigrams_filtered %>% 
+  count(word1, word2, sort = TRUE) -> ikke_kriser_bigrams_counts
+```
+
+```{r}
+bigram_graph_ikke_kriser <- ikke_kriser_bigrams_counts %>%
+  filter(n > 2) %>%
+  graph_from_data_frame()
+```
+
+```{r}
+a <- grid::arrow(type = "closed", length = unit(.15, "inches"))
+
+ggraph(bigram_graph_ikke_kriser, layout = "fr") +
+  geom_edge_link(aes(edge_alpha = n), show.legend = FALSE,
+                 arrow = a, end_cap = circle(.05, 'inches')) +
+  geom_node_point(color = "darkgreen", size = 4) +
+  geom_node_text(aes(label = name), vjust = 1, hjust = 1) +
+  theme_void()
+
+
+```
+
+```
+

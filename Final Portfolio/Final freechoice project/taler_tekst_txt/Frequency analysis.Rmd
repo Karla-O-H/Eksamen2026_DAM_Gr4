@@ -1,0 +1,163 @@
+---
+title: "Frequency analysis"
+output:
+  html_document: default
+  pdf_document: default
+date: "2026-05-13"
+author: "Karla Olivia Hoppe"
+---
+
+```{r setup, include=FALSE}
+#We start out by installing and accessing all the packages required to make our frequens analysis.
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(tidytext)
+library(ggwordcloud)
+library(stopwords)
+library(ggplot2)
+
+#install.packages("wordcloud")
+#install.packages("readtext")
+
+library(readtext)
+```
+ 
+```{r}
+#We access our self made datasets 'kriser' and 'ikke_kriser' in the desktop folder 'taler_text_txt' by using the function 'readtext' and accessing all files ending with '.txt' which is all files in both folders - five speeches in each. 
+
+kriser <- tibble(readtext("kriser/*.txt",
+                          docvarsfrom = "filenames",
+                          docvarnames = c("navn","årstal","parti","kontekst"),
+                          dvsep = "_"))
+
+
+ikke_kriser <- tibble(readtext("ikke_kriser//*.txt",
+                          docvarsfrom = "filenames",
+                          docvarnames = c("navn","årstal","parti","kontekst"),
+                          dvsep = "_"))
+```
+ 
+```{r}
+#Tidytext: We use the unnest_token function to mark each 'value' in the collumn 'text' in both datasets as words. The unnest_tokens function also makes all letters lowercase and removes all punctuation from the texts. 
+
+kriser_tidy <- kriser %>%
+  unnest_tokens(word, text)
+
+ikke_kriser_tidy <- ikke_kriser %>%
+  unnest_tokens(word, text)
+```
+ 
+```{r}
+#We use the stopwordpackage 'da' and call it 'stopord'
+
+stopord <- tibble(word = stopwords("da"))
+```
+ 
+```{r}
+#We make a context specific stopwordlist and add the words, that aren't included in the 'da' package
+
+stopord_nytaarstaler <- tibble(word = c("kan", "år", "så", "ved", "må", "nye", "mere", "godt", "andre", "gøre", "kommer", "får", "store", "vort", "hele", "uden", "andet", "fordi", "går", "ingen", "derfor", "endnu", "enkelte", "hver", "lad", "kan", "kun"))
+```
+
+```{r}
+#We subtract the stopwords from the speeches. Both the installed and the selfdefined, after which we count the frequency of the remaining words in the speeches marked as 'kriser' og 'crisies'
+
+kriser_tidy %>%
+  anti_join(stopord) %>%
+  anti_join(stopord_nytaarstaler) %>%
+  count(word, sort = TRUE) 
+```
+```{r}
+#We repeat the same process with the dataset 'ikke_kriser' or 'not_crisies'
+
+ikke_kriser_tidy %>%
+  anti_join(stopord) %>%
+  anti_join(stopord_nytaarstaler) %>%
+  count(word, sort = TRUE) 
+```
+ 
+
+
+```{r}
+#We ended up not including the wordclouds in the final project, but to illustrate that the function still worked, we haven't removed it from the html.
+
+kriser_tidy %>%
+  anti_join(stopord) %>%
+  anti_join(stopord_nytaarstaler) %>%
+  count(word, sort = TRUE) %>%
+  slice_max(n, n = 100) %>%
+  ggplot(aes(label = word, size = n)) +
+  geom_text_wordcloud() +
+  scale_size_area(max_size = 10) +
+  theme_minimal()
+```
+```{r}
+ikke_kriser_tidy %>%
+  anti_join(stopord) %>%
+  anti_join(stopord_nytaarstaler) %>%
+  count(word, sort = TRUE) %>%
+  slice_max(n, n = 100) %>%
+  ggplot(aes(label = word, size = n)) +
+  geom_text_wordcloud() +
+  scale_size_area(max_size = 10) +
+  theme_minimal()
+```
+
+```{r}
+#We make a clean dataset called 'kriser_clean' and 'ikke_kriser_clean' with stopwords sorted away.
+
+kriser_clean <- kriser_tidy %>%
+  anti_join(stopord, by = "word") %>%
+  anti_join(stopord_nytaarstaler, by = "word")
+
+ikke_kriser_clean <- ikke_kriser_tidy %>%
+  anti_join(stopord, by = "word") %>%
+  anti_join(stopord_nytaarstaler, by = "word")
+```
+
+```{r}
+#We make a comparative graph of the most frequent words in th two datasets to gain understanding of the speeches and come closer to a close reading than what the sentiment analysis allowed. It is off course still distant reading, but the speeches' specific themes are easier to gain understanding of this way. The graph was made by ChatGPT but edited to suit the specific needs of our analysis. From line 136 to 147 was mainly made by ChatGPT and line 148 to 157 was primarily made with the use of the 'Tidytextmining.com' chapter 3 and the guidance of Max Odsbjerg. Afterwards the graph have been saved and added as a figure to our final assignment. 
+
+bind_rows(
+  kriser_clean %>% mutate(type = "Krise"),
+  ikke_kriser_clean %>% mutate(type = "Ikke-krise")
+) %>%
+  anti_join(stopord) %>%
+  count(type, word) %>%
+  group_by(type) %>%
+  slice_max(n, n = 25) %>%
+  ungroup() %>% 
+  mutate(word = reorder_within(word, n, type)) %>% 
+  ggplot(aes(x = word, y = n, fill = type)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~type, scales = "free") +
+  coord_flip() +
+  labs(
+    x = "Words",
+    y = "Frequency",
+    title = "Comparison - most frequent words in the two datasets"
+  )+
+  scale_fill_manual(values = c(
+    "Krise" = "red",
+    "Ikke-krise" = "#4a9ae0"
+  )) +
+  scale_x_reordered() +
+  theme_minimal()
+```
+
+
+ 
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
